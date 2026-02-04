@@ -1,0 +1,152 @@
+{
+  "meta": {
+    "generated_by": "Idea2Paper Analysis + Claude Code",
+    "timestamp": "2026-02-04T21:00:00Z",
+    "idea": "APPLUS3: Orquestador inteligente con Knowledge Graph persistente"
+  },
+  "story": {
+    "title": "APPLUS3: Context-Aware Multi-IA Code Generation Orchestrator",
+    "abstract": "APPLUS3 transforms code generation from stateless LLM calls to context-aware orchestration. By maintaining a Knowledge Graph as the single source of truth, the system enables coherent multi-file generation where each component understands its dependencies and relationships. The Orchestrator acts as a central brain directing M0 (analysis), M1 (AgentCoder generation), and M2 (deployment) workers, while the Anchored Review system validates outputs against established patterns.",
+    "problem_framing": "Current Multi-IA systems generate code statelessly - each file is created without awareness of previously generated components. This leads to interface mismatches, duplicate logic, and incoherent architectures. APPLUS3 reframes code generation as a graph traversal problem where the Knowledge Graph maintains relationships between functions, classes, and modules.",
+    "gap_pattern": "Existing code generation lacks: (1) persistent memory of generated artifacts, (2) dependency-aware generation order, (3) interface consistency validation, (4) pattern reuse from successful generations. APPLUS3 fills these gaps through its KG-centric architecture.",
+    "solution": "A three-layer architecture: Orchestrator (brain), Workers (M0/M1/M2), and Knowledge Graph (memory). The Orchestrator reads the KG to determine generation order, passes relevant context to workers, and updates the KG with new artifacts. Anchored Review validates each output before committing to the KG."
+  },
+  "patterns": [
+    {
+      "pattern_id": "orchestrator_pattern",
+      "name": "Central Orchestrator Pattern",
+      "description": "A director component that sequences operations, maintains state, and coordinates workers",
+      "applies_to": ["orchestrator.py"],
+      "dependencies": ["knowledge_graph.py", "retrieval.py"],
+      "interfaces": {
+        "inputs": ["user_request", "kg_context"],
+        "outputs": ["generated_files", "kg_updates"]
+      }
+    },
+    {
+      "pattern_id": "kg_pattern",
+      "name": "Knowledge Graph as Single Source of Truth",
+      "description": "Persistent graph storing Functions, Dependencies, Patterns as nodes with typed edges",
+      "applies_to": ["knowledge_graph.py"],
+      "node_types": ["Function", "Class", "Module", "Pattern", "Dependency"],
+      "edge_types": ["DEPENDS_ON", "IMPLEMENTS", "USES_PATTERN", "EXPORTS"]
+    },
+    {
+      "pattern_id": "anchored_review_pattern",
+      "name": "Anchored Multi-Agent Validation",
+      "description": "Validate generated code against anchor examples using relative comparisons",
+      "applies_to": ["anchored_review.py"],
+      "reviewers": ["CodeQuality", "InterfaceConsistency", "PatternAdherence"],
+      "method": "LLM compares output to anchors (better/tie/worse), deterministic scoring"
+    },
+    {
+      "pattern_id": "retrieval_pattern",
+      "name": "Context Retrieval System",
+      "description": "Fetch relevant KG nodes and previous code for contextual generation",
+      "applies_to": ["retrieval.py"],
+      "retrieval_paths": ["dependency_chain", "similar_functions", "pattern_examples"]
+    },
+    {
+      "pattern_id": "worker_pattern",
+      "name": "Specialized Worker Pattern",
+      "description": "Domain-specific workers (M0=analysis, M1=codegen, M2=deploy) that receive context and return artifacts",
+      "applies_to": ["m0_worker.py", "m1_worker.py", "m2_worker.py"]
+    }
+  ],
+  "components": [
+    {
+      "id": "orchestrator",
+      "file": "orchestrator/orchestrator.py",
+      "type": "Module",
+      "pattern": "orchestrator_pattern",
+      "description": "Central brain that sequences M0->M1->M2, passes KG context, validates outputs",
+      "depends_on": ["knowledge_graph", "retrieval", "anchored_review"],
+      "exports": ["Orchestrator", "run_pipeline"],
+      "priority": 1
+    },
+    {
+      "id": "knowledge_graph",
+      "file": "orchestrator/knowledge_graph.py",
+      "type": "Module",
+      "pattern": "kg_pattern",
+      "description": "Persistent graph storage for functions, dependencies, patterns. JSON-backed, CRUD operations",
+      "depends_on": [],
+      "exports": ["KnowledgeGraph", "Node", "Edge"],
+      "priority": 2
+    },
+    {
+      "id": "anchored_review",
+      "file": "orchestrator/anchored_review.py",
+      "type": "Module",
+      "pattern": "anchored_review_pattern",
+      "description": "Multi-agent validation using anchored comparisons. 3 reviewers, deterministic scoring",
+      "depends_on": ["knowledge_graph"],
+      "exports": ["AnchoredReviewer", "ReviewResult"],
+      "priority": 3
+    },
+    {
+      "id": "retrieval",
+      "file": "orchestrator/retrieval.py",
+      "type": "Module",
+      "pattern": "retrieval_pattern",
+      "description": "Retrieves relevant context from KG for generation prompts",
+      "depends_on": ["knowledge_graph"],
+      "exports": ["ContextRetriever", "RetrievalResult"],
+      "priority": 4
+    },
+    {
+      "id": "m0_worker",
+      "file": "workers/m0_worker.py",
+      "type": "Module",
+      "pattern": "worker_pattern",
+      "description": "Analysis worker: parses user request, identifies components needed, creates initial KG nodes",
+      "depends_on": ["knowledge_graph"],
+      "exports": ["M0Worker", "AnalysisResult"],
+      "priority": 5
+    },
+    {
+      "id": "m1_worker",
+      "file": "workers/m1_worker.py",
+      "type": "Module",
+      "pattern": "worker_pattern",
+      "description": "Code generation worker: AgentCoder per-function, uses Multi-IA consensus, receives KG context",
+      "depends_on": ["knowledge_graph", "retrieval"],
+      "exports": ["M1Worker", "GenerationResult"],
+      "priority": 6
+    },
+    {
+      "id": "m2_worker",
+      "file": "workers/m2_worker.py",
+      "type": "Module",
+      "pattern": "worker_pattern",
+      "description": "Deployment worker: generates configs, Dockerfiles, requirements, deployment scripts",
+      "depends_on": ["knowledge_graph"],
+      "exports": ["M2Worker", "DeploymentResult"],
+      "priority": 7
+    },
+    {
+      "id": "api_main",
+      "file": "api/main.py",
+      "type": "Module",
+      "pattern": "orchestrator_pattern",
+      "description": "FastAPI entry point: /generate, /status, /kg endpoints. Calls Orchestrator",
+      "depends_on": ["orchestrator"],
+      "exports": ["app"],
+      "priority": 8
+    }
+  ],
+  "generation_order": [
+    "knowledge_graph",
+    "retrieval",
+    "anchored_review",
+    "orchestrator",
+    "m0_worker",
+    "m1_worker",
+    "m2_worker",
+    "api_main"
+  ],
+  "context_chain": {
+    "description": "Each generation receives: KG definition + all previously generated files",
+    "max_context_chars": 12000
+  }
+}
